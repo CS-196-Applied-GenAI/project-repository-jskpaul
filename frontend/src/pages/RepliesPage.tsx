@@ -28,8 +28,10 @@ export function RepliesPage() {
   return (
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold mb-2">Replies</h1>
-      <p className="text-sm text-slate-300 mb-4">Viewing replies to tweet #{tweetId}</p>
-      <div className="divide-y divide-slate-800 border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60">
+      <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+        Viewing replies to tweet #{tweetId}
+      </p>
+      <div className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white/70 dark:bg-slate-950/60">
         {MOCK_REPLIES.map((reply) => (
           <article key={reply.id} className="p-4 hover:bg-slate-900/60 transition-colors">
             <header className="flex items-center justify-between mb-1">

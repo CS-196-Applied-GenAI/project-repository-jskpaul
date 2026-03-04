@@ -1,5 +1,6 @@
 """Bird-App 2.0 Backend — FastAPI + Chirper schema."""
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +10,17 @@ from .db import get_db_session
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Bird-App Backend")
+
+    # Allow the React dev server to call the API (CORS preflight uses OPTIONS).
+    app.add_middleware(
+        CORSMiddleware,
+        # In dev, allow all origins so the React dev server can talk to the API
+        # without strict CORS issues. You can tighten this in production.
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.get("/health")
     async def health(db: AsyncSession = Depends(get_db_session)) -> dict:

@@ -10,7 +10,8 @@ import {
 } from "react";
 
 export type AuthUser = {
-  handle: string;
+  username: string;
+  token: string;
 };
 
 type AuthContextValue = {
@@ -29,9 +30,27 @@ type AuthProviderProps = {
 };
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+const STORAGE_KEY = "bird-app-auth";
+
+function readStoredUser(): AuthUser | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AuthUser;
+    if (parsed && typeof parsed.username === "string" && typeof parsed.token === "string") {
+      return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 export function AuthProvider({ children, inactivityTimeoutMs = DEFAULT_TIMEOUT_MS }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(() => readStoredUser());
   const timeoutIdRef = useRef<number | null>(null);
 
   const clearTimer = () => {
@@ -46,15 +65,18 @@ export function AuthProvider({ children, inactivityTimeoutMs = DEFAULT_TIMEOUT_M
     if (!user) return;
     timeoutIdRef.current = window.setTimeout(() => {
       setUser(null);
+      window.localStorage.removeItem(STORAGE_KEY);
     }, inactivityTimeoutMs);
   }, [user, inactivityTimeoutMs]);
 
   const login = useCallback((nextUser: AuthUser) => {
     setUser(nextUser);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
+    window.localStorage.removeItem(STORAGE_KEY);
   }, []);
 
   useEffect(() => {

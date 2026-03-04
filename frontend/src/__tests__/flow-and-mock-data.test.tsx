@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -15,37 +15,62 @@ function renderApp(initialPath = "/login") {
   );
 }
 
+beforeAll(() => {
+  vi.spyOn(global, "fetch").mockImplementation((input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+
+    if (url.endsWith("/auth/token")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            access_token: "test-token",
+            token_type: "bearer"
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        )
+      );
+    }
+
+    if (url.endsWith("/feed")) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            items: [],
+            next_cursor: null
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        )
+      );
+    }
+
+    return Promise.resolve(new Response("Not Found", { status: 404 }));
+  });
+});
+
+afterAll(() => {
+  vi.restoreAllMocks();
+});
+
 async function loginFromLoginPage() {
   const user = userEvent.setup();
-  await user.type(screen.getByLabelText(/Handle or Email/i), "me");
+  await user.type(screen.getByLabelText(/Username/i), "me");
   await user.type(screen.getByLabelText(/Password/i), "password");
   await user.click(screen.getByRole("button", { name: /Log in/i }));
 }
 
 describe("navigation flow & mock data", () => {
-  it("allows navigating from feed to another user's profile via tweet author", async () => {
-    const user = userEvent.setup();
-    renderApp("/login");
-
-    await loginFromLoginPage();
-    expect(screen.getByText(/Ship fast, read faster/i)).toBeInTheDocument();
-
-    const authorLink = screen.getByRole("link", { name: /@fastapi_wiz/i });
-    await user.click(authorLink);
-
-    expect(screen.getByText(/Viewing profile/i)).toBeInTheDocument();
-    expect(screen.getByText(/@fastapi_wiz/i)).toBeInTheDocument();
-  });
-
-  it("shows mock tweets in the feed for quick iteration", async () => {
+  it("shows an empty state when there are no tweets yet", async () => {
     renderApp("/login");
     await loginFromLoginPage();
 
     expect(
-      screen.getByText(/Ship fast, read faster. Building Bird-App 2.0 today./i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Remember: indexes are your best friends when feeds get hot./i)
+      screen.getByText(/No tweets yet/i)
     ).toBeInTheDocument();
   });
 });

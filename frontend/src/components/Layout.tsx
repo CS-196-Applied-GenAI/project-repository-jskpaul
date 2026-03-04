@@ -28,7 +28,7 @@ function getInitialTheme(): Theme {
 
 export function Layout({ children }: LayoutProps) {
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -62,9 +62,11 @@ export function Layout({ children }: LayoutProps) {
                     <NavLink to="/post" className={navLinkClasses}>
                       New Post
                     </NavLink>
-                    <NavLink to="/profile/me" className={navLinkClasses}>
-                      My Profile
-                    </NavLink>
+                    {user && (
+                      <NavLink to={`/profile/${user.username}`} className={navLinkClasses}>
+                        My Profile
+                      </NavLink>
+                    )}
                   </>
                 )}
                 {!isAuthenticated && (

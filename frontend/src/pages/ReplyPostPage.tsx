@@ -20,16 +20,18 @@ export function ReplyPostPage() {
   return (
     <section className="max-w-xl mx-auto">
       <h1 className="text-2xl font-semibold mb-2">Reply</h1>
-      <p className="text-sm text-slate-300 mb-4">Replying to tweet #{tweetId}</p>
+      <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+        Replying to tweet #{tweetId}
+      </p>
       <form onSubmit={onSubmit} className="space-y-4">
         <textarea
-          className="w-full min-h-[140px] rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500 resize-vertical"
+          className="w-full min-h-[140px] rounded-xl bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-50 border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500 resize-vertical"
           maxLength={320}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Share your thoughts in a quick reply..."
         />
-        <div className="flex items-center justify-between text-xs text-slate-400">
+        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
           <span className={isTooLong ? "text-red-400" : undefined}>{charsRemaining} characters left</span>
           <button
             type="submit"
