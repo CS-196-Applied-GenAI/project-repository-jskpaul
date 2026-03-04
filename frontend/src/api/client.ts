@@ -83,7 +83,9 @@ export async function fetchFeed(token: string): Promise<FeedResponse> {
     }
   });
   if (!resp.ok) {
-    throw new Error("Failed to load feed");
+    const error = new Error("Failed to load feed") as Error & { status?: number };
+    error.status = resp.status;
+    throw error;
   }
   return (await resp.json()) as FeedResponse;
 }
@@ -120,4 +122,31 @@ export async function fetchProfile(
   }
   return (await resp.json()) as ProfileResponse;
 }
+
+export async function followUser(userId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/users/${userId}/follow`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to follow user");
+  }
+}
+
+export async function unfollowUser(userId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/users/${userId}/follow`), {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to unfollow user");
+  }
+}
+
 

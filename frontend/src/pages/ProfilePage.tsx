@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { fetchProfile, type ProfileResponse } from "../api/client";
+import { fetchProfile, followUser, unfollowUser, type ProfileResponse } from "../api/client";
 
 export function ProfilePage() {
   const { handle } = useParams<{ handle: string }>();
@@ -15,6 +15,7 @@ export function ProfilePage() {
   const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isTogglingFollow, setIsTogglingFollow] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,15 +47,48 @@ export function ProfilePage() {
   const isYou = user != null && username === user.username;
   const profileUser = profile?.user;
 
+  const canFollow = !isYou && !!profileUser && !!user;
+
+  const handleToggleFollow = async () => {
+    if (!user || !profileUser || isTogglingFollow) return;
+    setIsTogglingFollow(true);
+    setError(null);
+    try {
+      if (profile?.is_following) {
+        await unfollowUser(profileUser.id, user.token);
+        setProfile({ ...profile, is_following: false });
+      } else {
+        await followUser(profileUser.id, user.token);
+        setProfile({ ...profile!, is_following: true });
+      }
+    } catch (err) {
+      setError("Failed to update follow status.");
+    } finally {
+      setIsTogglingFollow(false);
+    }
+  };
+
   return (
     <section className="space-y-4">
       <header className="space-y-2">
         <p className="text-sm text-slate-600 dark:text-slate-400">
           {isYou ? "Your profile" : "Viewing profile"}
         </p>
-        <h1 className="text-2xl font-semibold">
-          @{profileUser?.username ?? username}
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">
+            @{profileUser?.username ?? username}
+          </h1>
+          {canFollow && profile && profileUser && (
+            <button
+              type="button"
+              onClick={handleToggleFollow}
+              disabled={isTogglingFollow}
+              className="rounded-full border border-sky-500 text-xs font-semibold px-3 py-1 text-sky-500 hover:bg-sky-500 hover:text-white disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            >
+              {profile.is_following ? (isTogglingFollow ? "Unfollowing..." : "Unfollow") : isTogglingFollow ? "Following..." : "Follow"}
+            </button>
+          )}
+        </div>
         {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
       </header>
       {isLoading && <p className="text-sm text-slate-600 dark:text-slate-400">Loading profile…</p>}

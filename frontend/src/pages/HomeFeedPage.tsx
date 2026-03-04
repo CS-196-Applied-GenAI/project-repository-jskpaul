@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { fetchFeed, type Tweet } from "../api/client";
 
 export function HomeFeedPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +23,13 @@ export function HomeFeedPage() {
         }
       } catch (err) {
         if (!cancelled) {
+          const status = (err as { status?: number }).status;
+          if (status === 401 || status === 403) {
+            // Token is invalid or expired; log out and send user back to login.
+            logout();
+            navigate("/login", { replace: true });
+            return;
+          }
           setError("Could not load your feed. Try refreshing.");
         }
       } finally {

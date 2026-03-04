@@ -28,6 +28,7 @@ function getInitialTheme(): Theme {
 
 export function Layout({ children }: LayoutProps) {
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
+  const [searchHandle, setSearchHandle] = useState("");
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -42,6 +43,15 @@ export function Layout({ children }: LayoutProps) {
   const handleLogout = () => {
     logout();
     navigate("/login", { replace: true });
+  };
+
+  const handleSearchSubmit: React.FormEventHandler<HTMLFormElement> = (event) => {
+    event.preventDefault();
+    const trimmed = searchHandle.trim();
+    if (!trimmed) return;
+    const handle = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+    setSearchHandle("");
+    navigate(`/profile/${handle}`);
   };
 
   return (
@@ -75,6 +85,21 @@ export function Layout({ children }: LayoutProps) {
                   </NavLink>
                 )}
               </nav>
+              {isAuthenticated && (
+                <form
+                  onSubmit={handleSearchSubmit}
+                  className="hidden sm:flex items-center gap-2 text-xs"
+                  aria-label="Search users by handle"
+                >
+                  <span className="text-slate-500 dark:text-slate-400">@</span>
+                  <input
+                    value={searchHandle}
+                    onChange={(e) => setSearchHandle(e.target.value)}
+                    placeholder="handle"
+                    className="w-28 rounded-full bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-50 border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </form>
+              )}
               {isAuthenticated && (
                 <button
                   type="button"

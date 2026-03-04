@@ -46,6 +46,7 @@ function readStoredUser(): AuthUser | null {
   } catch {
     // ignore
   }
+  window.localStorage.removeItem(STORAGE_KEY);
   return null;
 }
 

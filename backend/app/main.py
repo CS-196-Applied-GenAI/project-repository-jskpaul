@@ -9,7 +9,7 @@ from .db import get_db_session
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Bird-App Backend")
+    app = FastAPI(title="Bird-App Backend", debug=True)
 
     # Allow the React dev server to call the API (CORS preflight uses OPTIONS).
     app.add_middleware(
