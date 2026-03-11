@@ -1,4 +1,4 @@
-# Bird-App 2.0 Backend (Chirper schema)
+# Chirper Backend (Chirper schema)
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
 sqlalchemy[asyncio]>=2.0.0

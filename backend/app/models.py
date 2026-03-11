@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -39,6 +39,10 @@ class Tweet(Base):
     image_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     retweeted_from: Mapped[int | None] = mapped_column(ForeignKey("tweets.id", ondelete="SET NULL"), nullable=True, index=True)
+    sentiment_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sentiment_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sentiment_analyzed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (Index("ix_tweets_user_created", "user_id", "created_at", "id"),)
 

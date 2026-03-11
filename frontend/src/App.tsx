@@ -8,6 +8,7 @@ import { ReplyPostPage } from "./pages/ReplyPostPage";
 import { RepliesPage } from "./pages/RepliesPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { SearchResultsPage } from "./pages/SearchResultsPage";
 import { RequireAuth } from "./auth/RequireAuth";
 
 function App() {
@@ -54,6 +55,14 @@ function App() {
           element={
             <RequireAuth>
               <ProfilePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/search"
+          element={
+            <RequireAuth>
+              <SearchResultsPage />
             </RequireAuth>
           }
         />

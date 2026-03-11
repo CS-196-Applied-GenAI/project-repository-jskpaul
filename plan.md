@@ -1,6 +1,6 @@
-# Bird-App 2.0 Backend Plan (FastAPI + Chirper SQL Schema)
+# Chirper Backend Plan (FastAPI + Chirper SQL Schema)
 
-This document is a step-by-step blueprint for building the backend for Bird-App 2.0 (MVP scope) **without implementing code yet**. It is optimized around:
+This document is a step-by-step blueprint for building the backend for Chirper (MVP scope) **without implementing code yet**. It is optimized around:
 - the spec’s primary goal: a **fast follower-only, reverse-chronological feed**, and
 - the course PDF’s required feature list and the provided **`chirper` SQL schema** (`chirper_full_schema.sql`).
 

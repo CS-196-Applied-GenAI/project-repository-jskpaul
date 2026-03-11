@@ -12,6 +12,8 @@ export type Tweet = {
   retweeted_from: number | null;
   like_count: number;
   liked_by_me: boolean;
+  sentiment_label?: string | null;
+  sentiment_score?: number | null;
 };
 
 export type FeedResponse = {
@@ -28,6 +30,15 @@ export type ProfileResponse = {
   user: UserMinimal;
   tweets: Tweet[];
   is_following: boolean;
+};
+
+export type Comment = {
+  id: number;
+  user_id: number;
+  username: string;
+  tweet_id: number;
+  contents: string | null;
+  created_at: string;
 };
 
 export const API_BASE_URL =
@@ -106,6 +117,19 @@ export async function createTweet(text: string, token: string): Promise<Tweet> {
   return (await resp.json()) as Tweet;
 }
 
+export async function deleteTweet(tweetId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}`), {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to delete tweet");
+  }
+}
+
 export async function fetchProfile(
   username: string,
   token: string | null
@@ -147,6 +171,89 @@ export async function unfollowUser(userId: number, token: string): Promise<void>
     const detail = await resp.text();
     throw new Error(detail || "Failed to unfollow user");
   }
+}
+
+export async function searchUsers(query: string): Promise<UserMinimal[]> {
+  const params = new URLSearchParams();
+  params.set("q", query);
+  const resp = await fetch(withBase(`/users/search?${params.toString()}`));
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to search users");
+  }
+  return (await resp.json()) as UserMinimal[];
+}
+
+export async function likeTweet(tweetId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}/like`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to like tweet");
+  }
+}
+
+export async function unlikeTweet(tweetId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}/like`), {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to unlike tweet");
+  }
+}
+
+export async function listComments(tweetId: number, token: string): Promise<Comment[]> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}/comments`), {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to load comments");
+  }
+  return (await resp.json()) as Comment[];
+}
+
+export async function createComment(
+  tweetId: number,
+  contents: string,
+  token: string
+): Promise<Comment> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}/comments`), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ contents })
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to create comment");
+  }
+  return (await resp.json()) as Comment;
+}
+
+export async function fetchTweet(tweetId: number, token: string): Promise<Tweet> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}`), {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to load tweet");
+  }
+  return (await resp.json()) as Tweet;
 }
 
 

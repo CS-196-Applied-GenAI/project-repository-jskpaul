@@ -1,6 +1,11 @@
 """Tweets: create, delete, feed (followed only, blocks, cursor), retweet/unretweet, like/unlike."""
-from typing import Any
+from datetime import datetime, timezone
+import json
+import logging
+import os
+from typing import Any, Tuple
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, delete, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +16,86 @@ from .schemas import FeedResponse, LikeResponse, TweetCreate, TweetRead
 from .security import get_current_user
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Default and max page size for feed
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 100
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Use the public Gemini REST model name that supports generateContent.
+# You can override this via the GEMINI_MODEL env var if needed.
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+
+async def analyze_sentiment_with_gemini(text: str) -> Tuple[str | None, float | None, str | None]:
+  """Call Gemini to analyze sentiment for the given text.
+
+  Returns (label, score, model) or (None, None, None) on failure or if not configured.
+  """
+  if not text:
+      return None, None, None
+  if not GEMINI_API_KEY:
+      logger.info("GEMINI_API_KEY not set; skipping sentiment analysis")
+      return None, None, None
+
+  system_instruction = (
+      "You are a sentiment analysis assistant. "
+      "Given a short social media post, respond with a single line of strict JSON in the form:\n"
+      '{"label": "positive" | "neutral" | "negative", "score": float}\n'
+      "Label should be the overall sentiment; score should be between -1.0 (very negative) and 1.0 (very positive). "
+      "Do not include any explanation or extra text."
+  )
+
+  payload = {
+      "contents": [
+          {
+              "parts": [
+                  {"text": system_instruction},
+                  {"text": f"Post:\n{text}"}
+              ]
+          }
+      ]
+  }
+
+  url = GEMINI_ENDPOINT.format(model=GEMINI_MODEL)
+  try:
+      async with httpx.AsyncClient(timeout=8.0) as client:
+          resp = await client.post(url, params={"key": GEMINI_API_KEY}, json=payload)
+      if resp.status_code != 200:
+          logger.error(
+              "Gemini sentiment request failed: status=%s body=%s",
+              resp.status_code,
+              resp.text[:500],
+          )
+          return None, None, None
+      data = resp.json()
+      candidates = data.get("candidates") or []
+      if not candidates:
+          logger.warning("Gemini sentiment response had no candidates: %s", data)
+          return None, None, None
+      parts = candidates[0].get("content", {}).get("parts") or []
+      if not parts:
+          logger.warning("Gemini sentiment candidate had no parts: %s", candidates[0])
+          return None, None, None
+      raw_text = parts[0].get("text", "").strip()
+      try:
+          sentiment = json.loads(raw_text)
+      except json.JSONDecodeError as exc:
+          logger.error("Failed to parse Gemini sentiment JSON. raw_text=%r error=%s", raw_text, exc)
+          return None, None, None
+      label = str(sentiment.get("label")) if sentiment.get("label") is not None else None
+      score_value = sentiment.get("score")
+      try:
+          score = float(score_value) if score_value is not None else None
+      except (TypeError, ValueError):
+          logger.error("Gemini sentiment score was not a float: %r", score_value)
+          score = None
+      return label, score, GEMINI_MODEL
+  except Exception as exc:  # pragma: no cover - defensive
+      logger.exception("Error calling Gemini sentiment API: %s", exc)
+      return None, None, None
 
 
 @router.post("", response_model=TweetRead, status_code=status.HTTP_201_CREATED)
@@ -27,7 +108,39 @@ async def create_tweet(
     db.add(tweet)
     await db.commit()
     await db.refresh(tweet)
+
+    label, score, model = await analyze_sentiment_with_gemini(tweet.text or "")
+    if label is not None or score is not None:
+        tweet.sentiment_label = label
+        tweet.sentiment_score = score
+        tweet.sentiment_model = model
+        tweet.sentiment_analyzed_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(tweet)
+
     return _tweet_to_read(tweet, current_user.username, like_count=0, liked_by_me=False)
+
+
+@router.get("/{tweet_id}", response_model=TweetRead)
+async def get_tweet(
+    tweet_id: int,
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> TweetRead:
+    result = await db.execute(select(Tweet, User.username).join(User, User.id == Tweet.user_id).where(Tweet.id == tweet_id))
+    row = result.first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tweet not found")
+    tweet, username = row
+    like_count_result = await db.execute(
+        select(func.count()).select_from(Like).where(Like.tweet_id == tweet.id)
+    )
+    like_count = like_count_result.scalar() or 0
+    liked = await db.execute(
+        select(Like).where(and_(Like.tweet_id == tweet.id, Like.user_id == current_user.id))
+    )
+    liked_by_me = liked.scalar_one_or_none() is not None
+    return _tweet_to_read(tweet, username, like_count=like_count, liked_by_me=liked_by_me)
 
 
 @router.delete("/{tweet_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -131,4 +244,6 @@ def _tweet_to_read(
         retweeted_from=tweet.retweeted_from,
         like_count=like_count,
         liked_by_me=liked_by_me,
+        sentiment_label=tweet.sentiment_label,
+        sentiment_score=tweet.sentiment_score,
     )

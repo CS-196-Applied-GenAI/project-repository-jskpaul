@@ -71,6 +71,8 @@ class TweetRead(BaseModel):
     retweeted_from: int | None = None
     like_count: int = 0
     liked_by_me: bool = False
+    sentiment_label: str | None = None
+    sentiment_score: float | None = None
 
 
 class FeedResponse(BaseModel):

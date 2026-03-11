@@ -1,4 +1,4 @@
-# 🐦 Bird-App 2.0: Technical Specification
+# 🐦 Chirper: Technical Specification
 
 **Project Goal:** A high-speed, text-centric social media platform focused on rapid information consumption via a "Follower-Only" feed.
 

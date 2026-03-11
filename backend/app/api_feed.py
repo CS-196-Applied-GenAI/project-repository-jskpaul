@@ -76,6 +76,8 @@ async def get_feed(
                 retweeted_from=tweet.retweeted_from,
                 like_count=like_count,
                 liked_by_me=liked_by_me,
+                sentiment_label=tweet.sentiment_label,
+                sentiment_score=tweet.sentiment_score,
             )
         )
     next_cursor = None

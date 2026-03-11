@@ -27,6 +27,24 @@ async def get_me(current_user: User = Depends(get_current_user)) -> UserRead:
     )
 
 
+@router.get("/search", response_model=list[UserReadMinimal])
+async def search_users(
+    q: str = Query(..., min_length=1, max_length=50),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[UserReadMinimal]:
+    like_pattern = f"%{q}%"
+    stmt = (
+        select(User)
+        .where(User.username.ilike(like_pattern))
+        .order_by(User.username.asc())
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    users = result.scalars().all()
+    return [UserReadMinimal(id=u.id, username=u.username) for u in users]
+
+
 @router.put("/me", response_model=UserRead)
 async def update_profile(
     payload: UserUpdate,
@@ -107,6 +125,8 @@ async def get_profile(
             retweeted_from=t.retweeted_from,
             like_count=0,
             liked_by_me=False,
+            sentiment_label=t.sentiment_label,
+            sentiment_score=t.sentiment_score,
         )
         for t in tweets
     ]

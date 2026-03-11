@@ -1,4 +1,4 @@
-"""Bird-App 2.0 Backend — FastAPI + Chirper schema."""
+"""Chirper Backend — FastAPI + Chirper schema."""
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -9,7 +9,7 @@ from .db import get_db_session
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Bird-App Backend", debug=True)
+    app = FastAPI(title="Chirper Backend", debug=True)
 
     # Allow the React dev server to call the API (CORS preflight uses OPTIONS).
     app.add_middleware(
