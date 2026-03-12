@@ -10,7 +10,7 @@ export function NotFoundPage() {
       <div className="flex justify-center gap-3 text-sm">
         <Link
           to="/home"
-          className="rounded-full bg-sky-500 hover:bg-sky-400 px-4 py-1.5 font-semibold transition-colors"
+          className="rounded-full bg-gradient-to-r from-accent to-[#FF7A5A] px-4 py-1.5 font-semibold text-white shadow-sm hover:from-[#FF7A94] hover:to-[#FF9A7A] active:brightness-95 transition-[filter,background-image]"
         >
           Go to Home
         </Link>

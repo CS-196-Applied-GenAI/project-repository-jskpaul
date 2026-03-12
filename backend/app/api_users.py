@@ -92,6 +92,8 @@ async def get_profile(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     is_following = False
+    is_blocked_by_me = False
+    has_blocked_me = False
     if current_user is not None:
         r = await db.execute(
             select(Follow).where(
@@ -102,6 +104,21 @@ async def get_profile(
             )
         )
         is_following = r.scalar_one_or_none() is not None
+
+        # Determine block relationship between the viewing user and the profile user.
+        rb = await db.execute(
+            select(Block).where(
+                and_(Block.blocker_id == current_user.id, Block.blocked_id == user.id)
+            )
+        )
+        is_blocked_by_me = rb.scalar_one_or_none() is not None
+
+        rb2 = await db.execute(
+            select(Block).where(
+                and_(Block.blocker_id == user.id, Block.blocked_id == current_user.id)
+            )
+        )
+        has_blocked_me = rb2.scalar_one_or_none() is not None
     stmt = (
         select(Tweet)
         .where(Tweet.user_id == user.id)
@@ -115,25 +132,43 @@ async def get_profile(
     has_more = len(tweets) > limit
     if has_more:
         tweets = list(tweets)[:limit]
-    items = [
-        TweetRead(
-            id=t.id,
-            text=t.text,
-            created_at=t.created_at,
-            user_id=t.user_id,
-            username=user.username,
-            retweeted_from=t.retweeted_from,
-            like_count=0,
-            liked_by_me=False,
-            sentiment_label=t.sentiment_label,
-            sentiment_score=t.sentiment_score,
+    items: list[TweetRead] = []
+    for t in tweets:
+        retweeted_from_username = None
+        retweeted_from_text = None
+        if t.retweeted_from is not None:
+            orig = await db.execute(
+                select(Tweet, User.username)
+                .join(User, User.id == Tweet.user_id)
+                .where(Tweet.id == t.retweeted_from)
+            )
+            orig_row = orig.first()
+            if orig_row is not None:
+                orig_tweet, orig_username = orig_row
+                retweeted_from_username = orig_username
+                retweeted_from_text = orig_tweet.text
+        items.append(
+            TweetRead(
+                id=t.id,
+                text=t.text,
+                created_at=t.created_at,
+                user_id=t.user_id,
+                username=user.username,
+                retweeted_from=t.retweeted_from,
+                retweeted_from_username=retweeted_from_username,
+                retweeted_from_text=retweeted_from_text,
+                like_count=0,
+                liked_by_me=False,
+                sentiment_label=t.sentiment_label,
+                sentiment_score=t.sentiment_score,
+            )
         )
-        for t in tweets
-    ]
     return {
-        "user": UserReadMinimal(id=user.id, username=user.username),
+        "user": UserReadMinimal(id=user.id, username=user.username, bio=user.bio, name=user.name),
         "tweets": items,
         "is_following": is_following,
+        "is_blocked_by_me": is_blocked_by_me,
+        "has_blocked_me": has_blocked_me,
     }
 
 

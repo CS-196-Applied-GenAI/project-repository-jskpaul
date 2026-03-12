@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { deleteTweet, fetchFeed, likeTweet, unlikeTweet, type Tweet } from "../api/client";
+import { deleteTweet, fetchFeed, likeTweet, retweetTweet, unlikeTweet, type Tweet } from "../api/client";
 
 export function HomeFeedPage() {
   const { user, logout } = useAuth();
@@ -12,6 +12,7 @@ export function HomeFeedPage() {
   const [likeError, setLikeError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [retweetError, setRetweetError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +74,17 @@ export function HomeFeedPage() {
     }
   };
 
+  const handleRetweet = async (tweet: Tweet) => {
+    if (!user) return;
+    setRetweetError(null);
+    try {
+      const newTweet = await retweetTweet(tweet.id, user.token);
+      setTweets((prev) => [newTweet, ...prev]);
+    } catch (err) {
+      setRetweetError("Could not retweet. Please try again.");
+    }
+  };
+
   return (
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold mb-2">Home</h1>
@@ -84,6 +96,7 @@ export function HomeFeedPage() {
       {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
       {likeError && <p className="text-sm text-red-500 dark:text-red-400">{likeError}</p>}
       {deleteError && <p className="text-sm text-red-500 dark:text-red-400">{deleteError}</p>}
+      {retweetError && <p className="text-sm text-red-500 dark:text-red-400">{retweetError}</p>}
       {!isLoading && tweets.length === 0 && !error && (
         <p className="text-sm text-slate-600 dark:text-slate-400">
           No tweets yet. Follow someone or post from another account to see activity here.
@@ -92,7 +105,10 @@ export function HomeFeedPage() {
       {tweets.length > 0 && (
         <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white/70 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-950/60">
           {tweets.map((tweet) => (
-            <article key={tweet.id} className="p-4 hover:bg-slate-900/60 transition-colors">
+            <article
+              key={tweet.id}
+              className="p-4 transition-colors hover:bg-gradient-to-r hover:from-[#FFF7ED] hover:to-[#F5F3FF] dark:hover:bg-gradient-to-r dark:hover:from-[#1A1024] dark:hover:to-[#0F1A2A]"
+            >
               <header className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
                   <Link to={`/profile/${tweet.username}`} className="font-semibold hover:underline">
@@ -112,7 +128,17 @@ export function HomeFeedPage() {
                   </button>
                 )}
               </header>
-              <p className="text-sm leading-relaxed mb-1.5">{tweet.text}</p>
+              {tweet.retweeted_from && tweet.retweeted_from_username && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+                  Retweeted from{" "}
+                  <Link to={`/profile/${tweet.retweeted_from_username}`} className="font-semibold hover:underline">
+                    @{tweet.retweeted_from_username}
+                  </Link>
+                </p>
+              )}
+              <p className="text-sm leading-relaxed mb-1.5">
+                {tweet.text ?? tweet.retweeted_from_text ?? ""}
+              </p>
               {typeof tweet.sentiment_label === "string" && tweet.sentiment_label && (
                 <div className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">
                   <span
@@ -142,6 +168,16 @@ export function HomeFeedPage() {
                   <span>{tweet.liked_by_me ? "♥" : "♡"}</span>
                   <span>{tweet.like_count}</span>
                 </button>
+                {user && tweet.username !== user.username && (
+                  <button
+                    type="button"
+                    onClick={() => handleRetweet(tweet)}
+                    disabled={tweet.retweeted_by_me}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-slate-200 hover:dark:bg-slate-800"
+                  >
+                    {tweet.retweeted_by_me ? "↻ Retweeted" : "↻ Retweet"}
+                  </button>
+                )}
                 <Link
                   to={`/post/${tweet.id}/reply`}
                   className="rounded-full px-2 py-1 hover:bg-slate-200 hover:dark:bg-slate-800"
@@ -181,7 +217,20 @@ export function HomeFeedPage() {
                   setDeleteError(null);
                   try {
                     await deleteTweet(pendingDeleteId, user.token);
-                    setTweets((prev) => prev.filter((t) => t.id !== pendingDeleteId));
+                    setTweets((prev) => {
+                      const toDelete = prev.find((t) => t.id === pendingDeleteId);
+                      if (!toDelete) {
+                        return prev.filter((t) => t.id !== pendingDeleteId);
+                      }
+                      const originalId = toDelete.retweeted_from ?? toDelete.id;
+                      return prev
+                        .filter((t) => t.id !== pendingDeleteId)
+                        .map((t) =>
+                          t.id === originalId
+                            ? { ...t, retweeted_by_me: false }
+                            : t
+                        );
+                    });
                     setPendingDeleteId(null);
                   } catch (err) {
                     setDeleteError("Failed to delete tweet.");

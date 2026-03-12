@@ -10,6 +10,9 @@ export type Tweet = {
   user_id: number;
   username: string;
   retweeted_from: number | null;
+  retweeted_from_username?: string | null;
+  retweeted_from_text?: string | null;
+  retweeted_by_me?: boolean;
   like_count: number;
   liked_by_me: boolean;
   sentiment_label?: string | null;
@@ -24,12 +27,16 @@ export type FeedResponse = {
 export type UserMinimal = {
   id: number;
   username: string;
+  bio?: string | null;
+  name?: string | null;
 };
 
 export type ProfileResponse = {
   user: UserMinimal;
   tweets: Tweet[];
   is_following: boolean;
+  is_blocked_by_me?: boolean;
+  has_blocked_me?: boolean;
 };
 
 export type Comment = {
@@ -39,6 +46,12 @@ export type Comment = {
   tweet_id: number;
   contents: string | null;
   created_at: string;
+};
+
+export type SentimentPreviewResponse = {
+  sentiment_label: string | null;
+  sentiment_score: number | null;
+  sentiment_model: string | null;
 };
 
 export const API_BASE_URL =
@@ -70,6 +83,7 @@ export async function loginRequest(username: string, password: string): Promise<
 
 export async function registerRequest(params: {
   username: string;
+  name: string;
   email: string;
   password: string;
 }): Promise<void> {
@@ -173,6 +187,50 @@ export async function unfollowUser(userId: number, token: string): Promise<void>
   }
 }
 
+export async function updateMyProfile(
+  params: { bio?: string | null; name?: string | null },
+  token: string
+): Promise<void> {
+  const resp = await fetch(withBase("/users/me"), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(params)
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to update profile");
+  }
+}
+
+export async function blockUser(userId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/users/${userId}/block`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to block user");
+  }
+}
+
+export async function unblockUser(userId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/users/${userId}/block`), {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to unblock user");
+  }
+}
+
 export async function searchUsers(query: string): Promise<UserMinimal[]> {
   const params = new URLSearchParams();
   params.set("q", query);
@@ -252,6 +310,39 @@ export async function fetchTweet(tweetId: number, token: string): Promise<Tweet>
   if (!resp.ok) {
     const detail = await resp.text();
     throw new Error(detail || "Failed to load tweet");
+  }
+  return (await resp.json()) as Tweet;
+}
+
+export async function previewSentiment(
+  text: string,
+  token: string
+): Promise<SentimentPreviewResponse> {
+  const resp = await fetch(withBase("/tweets/sentiment-preview"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({ text })
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to preview sentiment");
+  }
+  return (await resp.json()) as SentimentPreviewResponse;
+}
+
+export async function retweetTweet(tweetId: number, token: string): Promise<Tweet> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}/retweet`), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to retweet");
   }
   return (await resp.json()) as Tweet;
 }

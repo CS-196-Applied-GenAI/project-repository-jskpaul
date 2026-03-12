@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_db_session
 from .models import Block, Follow, Like, Tweet, User
-from .schemas import FeedResponse, LikeResponse, TweetCreate, TweetRead
+from .schemas import FeedResponse, LikeResponse, SentimentPreviewRequest, SentimentPreviewResponse, TweetCreate, TweetRead
 from .security import get_current_user
 
 router = APIRouter()
@@ -25,7 +25,7 @@ MAX_LIMIT = 100
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 # Use the public Gemini REST model name that supports generateContent.
 # You can override this via the GEMINI_MODEL env var if needed.
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 
@@ -98,6 +98,19 @@ async def analyze_sentiment_with_gemini(text: str) -> Tuple[str | None, float | 
       return None, None, None
 
 
+@router.post("/sentiment-preview", response_model=SentimentPreviewResponse)
+async def sentiment_preview(
+    payload: SentimentPreviewRequest,
+    current_user: User = Depends(get_current_user),
+) -> SentimentPreviewResponse:
+    label, score, model = await analyze_sentiment_with_gemini(payload.text)
+    return SentimentPreviewResponse(
+        sentiment_label=label,
+        sentiment_score=score,
+        sentiment_model=model,
+    )
+
+
 @router.post("", response_model=TweetRead, status_code=status.HTTP_201_CREATED)
 async def create_tweet(
     payload: TweetCreate,
@@ -132,6 +145,7 @@ async def get_tweet(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tweet not found")
     tweet, username = row
+    original_id = tweet.retweeted_from if tweet.retweeted_from is not None else tweet.id
     like_count_result = await db.execute(
         select(func.count()).select_from(Like).where(Like.tweet_id == tweet.id)
     )
@@ -140,7 +154,37 @@ async def get_tweet(
         select(Like).where(and_(Like.tweet_id == tweet.id, Like.user_id == current_user.id))
     )
     liked_by_me = liked.scalar_one_or_none() is not None
-    return _tweet_to_read(tweet, username, like_count=like_count, liked_by_me=liked_by_me)
+    retweet_exists = await db.execute(
+        select(Tweet.id).where(
+            and_(
+                Tweet.user_id == current_user.id,
+                Tweet.retweeted_from == original_id,
+            )
+        )
+    )
+    retweeted_by_me = retweet_exists.first() is not None
+    retweeted_from_username = None
+    retweeted_from_text = None
+    if tweet.retweeted_from is not None:
+        orig = await db.execute(
+            select(Tweet, User.username)
+            .join(User, User.id == Tweet.user_id)
+            .where(Tweet.id == tweet.retweeted_from)
+        )
+        orig_row = orig.first()
+        if orig_row is not None:
+            orig_tweet, orig_username = orig_row
+            retweeted_from_username = orig_username
+            retweeted_from_text = orig_tweet.text
+    return _tweet_to_read(
+        tweet,
+        username,
+        like_count=like_count,
+        liked_by_me=liked_by_me,
+        retweeted_from_username=retweeted_from_username,
+        retweeted_from_text=retweeted_from_text,
+        retweeted_by_me=retweeted_by_me,
+    )
 
 
 @router.delete("/{tweet_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -179,7 +223,24 @@ async def retweet(
     db.add(retweet_row)
     await db.commit()
     await db.refresh(retweet_row)
-    return _tweet_to_read(retweet_row, current_user.username, like_count=0, liked_by_me=False)
+    # Include original tweet details so the frontend can render retweets without extra requests.
+    orig = await db.execute(
+        select(Tweet, User.username)
+        .join(User, User.id == Tweet.user_id)
+        .where(Tweet.id == tweet_id)
+    )
+    orig_row = orig.first()
+    retweeted_from_username = orig_row[1] if orig_row is not None else None
+    retweeted_from_text = orig_row[0].text if orig_row is not None else None
+    return _tweet_to_read(
+        retweet_row,
+        current_user.username,
+        like_count=0,
+        liked_by_me=False,
+        retweeted_from_username=retweeted_from_username,
+        retweeted_from_text=retweeted_from_text,
+        retweeted_by_me=True,
+    )
 
 
 @router.delete("/{tweet_id}/retweet", status_code=status.HTTP_204_NO_CONTENT)
@@ -233,7 +294,13 @@ async def unlike_tweet(
 
 
 def _tweet_to_read(
-    tweet: Tweet, username: str, like_count: int = 0, liked_by_me: bool = False
+    tweet: Tweet,
+    username: str,
+    like_count: int = 0,
+    liked_by_me: bool = False,
+    retweeted_from_username: str | None = None,
+    retweeted_from_text: str | None = None,
+    retweeted_by_me: bool = False,
 ) -> TweetRead:
     return TweetRead(
         id=tweet.id,
@@ -242,6 +309,9 @@ def _tweet_to_read(
         user_id=tweet.user_id,
         username=username,
         retweeted_from=tweet.retweeted_from,
+        retweeted_from_username=retweeted_from_username,
+        retweeted_from_text=retweeted_from_text,
+        retweeted_by_me=retweeted_by_me,
         like_count=like_count,
         liked_by_me=liked_by_me,
         sentiment_label=tweet.sentiment_label,

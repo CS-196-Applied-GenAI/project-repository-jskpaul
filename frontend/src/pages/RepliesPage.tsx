@@ -61,7 +61,15 @@ export function RepliesPage() {
               {new Date(tweet.created_at).toLocaleString()}
             </span>
           </header>
-          <p className="text-base leading-relaxed mb-1.5">{tweet.text}</p>
+          {tweet.retweeted_from && tweet.retweeted_from_username && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+              Retweeted from{" "}
+              <Link to={`/profile/${tweet.retweeted_from_username}`} className="font-semibold hover:underline">
+                @{tweet.retweeted_from_username}
+              </Link>
+            </p>
+          )}
+          <p className="text-base leading-relaxed mb-1.5">{tweet.text ?? tweet.retweeted_from_text ?? ""}</p>
           {typeof tweet.sentiment_label === "string" && tweet.sentiment_label && (
             <span
               className={

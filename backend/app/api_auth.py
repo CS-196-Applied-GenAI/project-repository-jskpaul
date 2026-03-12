@@ -33,6 +33,7 @@ async def register(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already exists")
     user = User(
         username=payload.username,
+        name=payload.name,
         email=payload.email,
         password_hash=hash_password(payload.password),
     )

@@ -31,7 +31,12 @@ async def get_feed(
     stmt = (
         select(Tweet, User.username)
         .join(User, User.id == Tweet.user_id)
-        .where(Tweet.user_id.in_(followees))
+        .where(
+            or_(
+                Tweet.user_id == current_user.id,
+                Tweet.user_id.in_(followees),
+            )
+        )
         .where(~Tweet.user_id.in_(blocked_by_me))
         .where(~Tweet.user_id.in_(blocking_me))
         .order_by(desc(Tweet.created_at), desc(Tweet.id))
@@ -56,6 +61,32 @@ async def get_feed(
         rows = rows[:limit]
     items: list[TweetRead] = []
     for tweet, username in rows:
+        original_id = tweet.retweeted_from if tweet.retweeted_from is not None else tweet.id
+
+        retweeted_from_username = None
+        retweeted_from_text = None
+        if tweet.retweeted_from is not None:
+            orig = await db.execute(
+                select(Tweet, User.username)
+                .join(User, User.id == Tweet.user_id)
+                .where(Tweet.id == tweet.retweeted_from)
+            )
+            orig_row = orig.first()
+            if orig_row is not None:
+                orig_tweet, orig_username = orig_row
+                retweeted_from_username = orig_username
+                retweeted_from_text = orig_tweet.text
+
+        retweet_exists = await db.execute(
+            select(Tweet.id).where(
+                and_(
+                    Tweet.user_id == current_user.id,
+                    Tweet.retweeted_from == original_id,
+                )
+            )
+        )
+        retweeted_by_me = retweet_exists.first() is not None
+
         like_count_result = await db.execute(
             select(func.count()).select_from(Like).where(Like.tweet_id == tweet.id)
         )
@@ -74,6 +105,9 @@ async def get_feed(
                 user_id=tweet.user_id,
                 username=username,
                 retweeted_from=tweet.retweeted_from,
+                retweeted_from_username=retweeted_from_username,
+                retweeted_from_text=retweeted_from_text,
+                retweeted_by_me=retweeted_by_me,
                 like_count=like_count,
                 liked_by_me=liked_by_me,
                 sentiment_label=tweet.sentiment_label,

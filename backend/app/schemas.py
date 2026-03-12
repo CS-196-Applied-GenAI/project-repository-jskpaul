@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 # ----- Auth -----
 class UserRegister(BaseModel):
     username: str = Field(..., min_length=3, max_length=20)
+    name: str = Field(..., min_length=1, max_length=100)
     email: str = Field(..., max_length=255)
     password: str = Field(..., min_length=8)
 
@@ -33,6 +34,8 @@ class UserRead(BaseModel):
 class UserReadMinimal(BaseModel):
     id: int
     username: str
+    bio: str | None = None
+    name: str | None = None
 
 
 class Token(BaseModel):
@@ -69,10 +72,23 @@ class TweetRead(BaseModel):
     user_id: int
     username: str
     retweeted_from: int | None = None
+    retweeted_from_username: str | None = None
+    retweeted_from_text: str | None = None
+    retweeted_by_me: bool = False
     like_count: int = 0
     liked_by_me: bool = False
     sentiment_label: str | None = None
     sentiment_score: float | None = None
+
+
+class SentimentPreviewRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=240)
+
+
+class SentimentPreviewResponse(BaseModel):
+    sentiment_label: str | None = None
+    sentiment_score: float | None = None
+    sentiment_model: str | None = None
 
 
 class FeedResponse(BaseModel):
