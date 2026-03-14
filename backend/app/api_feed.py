@@ -1,4 +1,4 @@
-"""Feed: GET /feed — followed users only, exclude blocks, cursor pagination."""
+"""Feed: GET /feed — global feed excluding blocked users, cursor pagination."""
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
@@ -24,19 +24,12 @@ async def get_feed(
     before_created_at: str | None = Query(None, description="Cursor: ISO timestamp"),
     before_id: int | None = Query(None, description="Cursor: tweet id tie-breaker"),
 ) -> FeedResponse:
-    followees = select(Follow.followee_id).where(Follow.follower_id == current_user.id)
     blocked_by_me = select(Block.blocked_id).where(Block.blocker_id == current_user.id)
     blocking_me = select(Block.blocker_id).where(Block.blocked_id == current_user.id)
 
     stmt = (
         select(Tweet, User.username)
         .join(User, User.id == Tweet.user_id)
-        .where(
-            or_(
-                Tweet.user_id == current_user.id,
-                Tweet.user_id.in_(followees),
-            )
-        )
         .where(~Tweet.user_id.in_(blocked_by_me))
         .where(~Tweet.user_id.in_(blocking_me))
         .order_by(desc(Tweet.created_at), desc(Tweet.id))

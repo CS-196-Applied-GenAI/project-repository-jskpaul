@@ -80,6 +80,19 @@ async def analyze_sentiment_with_gemini(text: str) -> Tuple[str | None, float | 
           logger.warning("Gemini sentiment candidate had no parts: %s", candidates[0])
           return None, None, None
       raw_text = parts[0].get("text", "").strip()
+
+      # Gemini sometimes wraps JSON in markdown code fences like ```json ... ```.
+      # Strip any leading/trailing fences before attempting to parse.
+      if raw_text.startswith("```"):
+          lines = raw_text.splitlines()
+          inner_lines: list[str] = []
+          for line in lines:
+              stripped = line.strip()
+              if stripped.startswith("```"):
+                  continue
+              inner_lines.append(line)
+          raw_text = "\n".join(inner_lines).strip()
+
       try:
           sentiment = json.loads(raw_text)
       except json.JSONDecodeError as exc:
