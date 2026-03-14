@@ -22,7 +22,10 @@ export function AccountCreatePage() {
         email: email.trim(),
         password
       });
-      navigate("/login", { replace: true, state: { justRegistered: true, username: handle.trim() } });
+      navigate("/register/success", {
+        replace: true,
+        state: { username: handle.trim() }
+      });
     } catch (err) {
       setError("Registration failed. Try a different handle or email.");
     } finally {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { deleteTweet, fetchFeed, likeTweet, retweetTweet, unlikeTweet, type Tweet } from "../api/client";
+import { deleteTweet, fetchFeed, likeTweet, retweetTweet, unretweetTweet, unlikeTweet, type Tweet } from "../api/client";
 
 export function HomeFeedPage() {
   const { user, logout } = useAuth();
@@ -77,11 +77,43 @@ export function HomeFeedPage() {
   const handleRetweet = async (tweet: Tweet) => {
     if (!user) return;
     setRetweetError(null);
-    try {
-      const newTweet = await retweetTweet(tweet.id, user.token);
-      setTweets((prev) => [newTweet, ...prev]);
-    } catch (err) {
-      setRetweetError("Could not retweet. Please try again.");
+    const originalId = tweet.retweeted_from ?? tweet.id;
+
+    if (!tweet.retweeted_by_me) {
+      // Retweet
+      try {
+        const newTweet = await retweetTweet(originalId, user.token);
+        setTweets((prev) => {
+          const updated = prev.map((t) =>
+            t.id === originalId
+              ? { ...t, retweeted_by_me: true }
+              : t
+          );
+          return [newTweet, ...updated];
+        });
+      } catch (err) {
+        setRetweetError("Could not retweet. Please try again.");
+      }
+    } else {
+      // Remove retweet
+      try {
+        await unretweetTweet(originalId, user.token);
+        setTweets((prev) =>
+          prev
+            // Drop our retweet rows for this original
+            .filter(
+              (t) => !(t.retweeted_from === originalId && t.username === user.username)
+            )
+            // Clear flag on the original tweet
+            .map((t) =>
+              t.id === originalId
+                ? { ...t, retweeted_by_me: false }
+                : t
+            )
+        );
+      } catch (err) {
+        setRetweetError("Could not remove retweet. Please try again.");
+      }
     }
   };
 
@@ -89,8 +121,8 @@ export function HomeFeedPage() {
     <section className="space-y-4">
       <h1 className="text-2xl font-semibold mb-2">Home</h1>
       <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
-        This is your follower-only, reverse-chronological feed. You&apos;ll see tweets from accounts you
-        follow.
+        This is the global, reverse-chronological feed. You&apos;ll see tweets from everyone except
+        accounts you&apos;ve blocked or that have blocked you.
       </p>
       {isLoading && <p className="text-sm text-slate-600 dark:text-slate-400">Loading feed...</p>}
       {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
@@ -172,7 +204,6 @@ export function HomeFeedPage() {
                   <button
                     type="button"
                     onClick={() => handleRetweet(tweet)}
-                    disabled={tweet.retweeted_by_me}
                     className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-slate-200 hover:dark:bg-slate-800"
                   >
                     {tweet.retweeted_by_me ? "↻ Retweeted" : "↻ Retweet"}

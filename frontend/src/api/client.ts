@@ -187,10 +187,20 @@ export async function unfollowUser(userId: number, token: string): Promise<void>
   }
 }
 
+export type CurrentUser = {
+  id: number;
+  username: string;
+  created_at: string;
+  email: string | null;
+  bio: string | null;
+  profile_picture: string | null;
+  name: string | null;
+};
+
 export async function updateMyProfile(
-  params: { bio?: string | null; name?: string | null },
+  params: { bio?: string | null; name?: string | null; username?: string | null },
   token: string
-): Promise<void> {
+): Promise<CurrentUser> {
   const resp = await fetch(withBase("/users/me"), {
     method: "PUT",
     headers: {
@@ -203,6 +213,7 @@ export async function updateMyProfile(
     const detail = await resp.text();
     throw new Error(detail || "Failed to update profile");
   }
+  return (await resp.json()) as CurrentUser;
 }
 
 export async function blockUser(userId: number, token: string): Promise<void> {
@@ -265,6 +276,19 @@ export async function unlikeTweet(tweetId: number, token: string): Promise<void>
   if (!resp.ok) {
     const detail = await resp.text();
     throw new Error(detail || "Failed to unlike tweet");
+  }
+}
+
+export async function unretweetTweet(tweetId: number, token: string): Promise<void> {
+  const resp = await fetch(withBase(`/tweets/${tweetId}/retweet`), {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || "Failed to remove retweet");
   }
 }
 

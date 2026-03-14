@@ -77,7 +77,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className={theme === "dark" ? "dark" : ""}>
       <div className="min-h-screen flex flex-col bg-sunset text-ink dark:bg-sunsetDark dark:text-[#F5F3FF]">
-        <header className="border-b border-black/10 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
+        <header className="border-b border-black/10 dark:border-slate-800 bg-[#FFF4EA]/85 dark:bg-slate-950/80 backdrop-blur">
         <div className="mx-auto max-w-4xl px-4 py-3 flex items-center justify-between gap-4">
           <Link to="/home" className="flex items-center gap-2">
             <span className="text-lg font-semibold">Chirper</span>
@@ -138,6 +138,16 @@ export function Layout({ children }: LayoutProps) {
                         className="block w-full px-3 py-2 text-left font-medium text-ink hover:bg-gradient-to-r hover:from-[#FFF7ED] hover:to-[#F5F3FF] dark:text-[#F5F3FF] dark:hover:bg-gradient-to-r dark:hover:from-[#1A1024] dark:hover:to-[#0F1A2A]"
                       >
                         View profile
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          navigate("/settings/profile");
+                        }}
+                        className="block w-full px-3 py-2 text-left font-medium text-ink hover:bg-gradient-to-r hover:from-[#FFF7ED] hover:to-[#F5F3FF] dark:text-[#F5F3FF] dark:hover:bg-gradient-to-r dark:hover:from-[#1A1024] dark:hover:to-[#0F1A2A]"
+                      >
+                        Profile settings
                       </button>
                       <button
                         type="button"

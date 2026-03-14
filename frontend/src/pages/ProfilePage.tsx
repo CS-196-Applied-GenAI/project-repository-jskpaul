@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   blockUser,
@@ -15,6 +15,7 @@ import {
 export function ProfilePage() {
   const { handle } = useParams<{ handle: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   let username = handle ?? user?.username ?? null;
   if (username === "me" && user?.username) {
@@ -27,11 +28,6 @@ export function ProfilePage() {
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [draftName, setDraftName] = useState("");
-  const [draftBio, setDraftBio] = useState("");
-  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isTogglingBlock, setIsTogglingBlock] = useState(false);
 
   useEffect(() => {
@@ -44,8 +40,6 @@ export function ProfilePage() {
         const data = await fetchProfile(username, user?.token ?? null);
         if (!cancelled) {
           setProfile(data);
-          setDraftName(data.user.name ?? "");
-          setDraftBio(data.user.bio ?? "");
         }
       } catch (err) {
         if (!cancelled) {
@@ -153,7 +147,9 @@ export function ProfilePage() {
             </div>
           )}
         </div>
-        {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+        {error && !profileUser && (
+          <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
+        )}
       </header>
       {isLoading && <p className="text-sm text-slate-600 dark:text-slate-400">Loading profile…</p>}
       {!isLoading && !error && !profileUser && (
@@ -165,100 +161,26 @@ export function ProfilePage() {
           <div className="rounded-xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                {isEditingProfile ? (
-                  <div className="space-y-2">
-                    <label className="block text-xs text-slate-600 dark:text-slate-400">
-                      Name
-                      <input
-                        value={draftName}
-                        onChange={(e) => setDraftName(e.target.value)}
-                        maxLength={100}
-                        className="mt-1 w-full rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-50 border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/70"
-                      />
-                    </label>
-                    <label className="block text-xs text-slate-600 dark:text-slate-400">
-                      Bio
-                      <textarea
-                        value={draftBio}
-                        onChange={(e) => setDraftBio(e.target.value)}
-                        rows={3}
-                        className="mt-1 w-full rounded-md bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-50 border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/70 resize-vertical"
-                        placeholder="Write a short bio…"
-                      />
-                    </label>
-                    {profileSaveError && (
-                      <p className="text-xs text-red-500 dark:text-red-400">{profileSaveError}</p>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={isSavingProfile}
-                        onClick={async () => {
-                          if (!user || !profile) return;
-                          setProfileSaveError(null);
-                          setIsSavingProfile(true);
-                          try {
-                            await updateMyProfile(
-                              { name: draftName.trim() || null, bio: draftBio.trim() || null },
-                              user.token
-                            );
-                            setProfile({
-                              ...profile,
-                              user: { ...profile.user, name: draftName.trim() || null, bio: draftBio.trim() || null }
-                            });
-                            setIsEditingProfile(false);
-                          } catch (e) {
-                            setProfileSaveError("Failed to save profile.");
-                          } finally {
-                            setIsSavingProfile(false);
-                          }
-                        }}
-                        className="rounded-full bg-gradient-to-r from-accent to-[#FF7A5A] px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:from-[#FF7A94] hover:to-[#FF9A7A] disabled:opacity-60 disabled:shadow-none transition-[filter,background-image,opacity]"
-                      >
-                        {isSavingProfile ? "Saving..." : "Save"}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isSavingProfile}
-                        onClick={() => {
-                          setDraftName(profile.user.name ?? "");
-                          setDraftBio(profile.user.bio ?? "");
-                          setProfileSaveError(null);
-                          setIsEditingProfile(false);
-                        }}
-                        className="rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium hover:bg-slate-100 hover:dark:bg-slate-800 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {profileUser.name && (
-                      <p className="text-base font-semibold leading-tight truncate">{profileUser.name}</p>
-                    )}
-                    {profileUser.bio ? (
-                      <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                        {profileUser.bio}
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">No bio yet.</p>
-                    )}
-                  </>
-                )}
+                <>
+                  {profileUser.name && (
+                    <p className="text-base font-semibold leading-tight truncate">{profileUser.name}</p>
+                  )}
+                  {profileUser.bio ? (
+                    <p className="mt-1 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                      {profileUser.bio}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">No bio yet.</p>
+                  )}
+                </>
               </div>
-              {isYou && !isEditingProfile && (
+              {isYou && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setDraftName(profile.user.name ?? "");
-                    setDraftBio(profile.user.bio ?? "");
-                    setProfileSaveError(null);
-                    setIsEditingProfile(true);
-                  }}
+                  onClick={() => navigate("/settings/profile")}
                   className="shrink-0 rounded-full border border-slate-300 dark:border-slate-600 px-3 py-1 text-xs font-medium hover:bg-slate-100 hover:dark:bg-slate-800 transition-colors"
                 >
-                  Edit
+                  Edit profile
                 </button>
               )}
             </div>

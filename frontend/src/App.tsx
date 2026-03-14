@@ -1,12 +1,14 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { AccountCreatePage } from "./pages/AccountCreatePage";
+import { AccountCreatedPage } from "./pages/AccountCreatedPage";
 import { LoginPage } from "./pages/LoginPage";
 import { HomeFeedPage } from "./pages/HomeFeedPage";
 import { NewPostPage } from "./pages/NewPostPage";
 import { ReplyPostPage } from "./pages/ReplyPostPage";
 import { RepliesPage } from "./pages/RepliesPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ProfileSettingsPage } from "./pages/ProfileSettingsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { SearchResultsPage } from "./pages/SearchResultsPage";
 import { RequireAuth } from "./auth/RequireAuth";
@@ -17,6 +19,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/register" element={<AccountCreatePage />} />
+        <Route path="/register/success" element={<AccountCreatedPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/home"
@@ -55,6 +58,14 @@ function App() {
           element={
             <RequireAuth>
               <ProfilePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/settings/profile"
+          element={
+            <RequireAuth>
+              <ProfileSettingsPage />
             </RequireAuth>
           }
         />
